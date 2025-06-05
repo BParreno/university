@@ -1,74 +1,99 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
+  // Asegúrate de que esta línea esté correcta si moviste la carpeta 'generated'.
+  // Si no moviste nada, lo más común es que no tenga un 'output' explícito o sea 'node_modules/.prisma/client'
+  // Si está generando en 'generated/prisma', déjalo así. Si te da problemas, bórralo y deja solo 'provider = "prisma-client-js"'
+  // output = "../generated/prisma" // Comenta o elimina esta línea si no la configuraste explícitamente así
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "postgresql" // O el proveedor que estés usando, como 'sqlite'
   url      = env("DATABASE_URL")
 }
 
+enum RoleName {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      RoleName @default(STUDENT)
+  studentId Int?     @unique
+  teacherId Int?     @unique
+
+  student   Student? @relation(fields: [studentId], references: [id])
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
+}
+
 model Major {
-  id          Int       @id @default(autoincrement())
-  name      String    @unique
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
   description String?
-  students StudentMajor[]
+  students    StudentMajor[]
   subjects    MajorSubject[]
   teachers    TeacherMajor[]
 }
 
 model Subject {
-  id          Int             @id @default(autoincrement())
-  name      String          @unique
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
   description String?
-  majors    MajorSubject[]
-  students StudentSubject[]
-  teachers    TeacherSubject?   @relation("SubjectTeacher")
-  teacherId   Int?            @unique
+  majors      MajorSubject[]
+  students    StudentSubject[]
+  teachers    TeacherSubject[]
 }
 
 model Student {
-  id        Int                 @id @default(autoincrement())
-  name    String
-  majors  StudentMajor[]
+  id        Int            @id @default(autoincrement())
+  name      String
+  majors    StudentMajor[]
   subjects  StudentSubject[]
+  user      User?
 }
 
 model Teacher {
-  id       Int              @id @default(autoincrement())
-  name   String
-  majors TeacherMajor[]
-  subjects TeacherSubject[] @relation("TeacherSubject")
+  id        Int            @id @default(autoincrement())
+  name      String
+  majors    TeacherMajor[]
+  subjects  TeacherSubject[]
+  user      User?
 }
 
+// Tablas de unión para relaciones muchos a muchos
 model StudentMajor {
   studentId Int
-  majorId    Int
+  majorId   Int
+  assignedAt DateTime @default(now())
+
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  major      Major    @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  major     Major   @relation(fields: [majorId], references: [id], onDelete: Cascade)
 
   @@id([studentId, majorId])
 }
 
 model StudentSubject {
   studentId Int
-  subjectId    Int
+  subjectId Int
+  assignedAt DateTime @default(now())
+
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@id([studentId, subjectId])
 }
 
 model MajorSubject {
-  majorId Int
+  majorId   Int
   subjectId Int
-  major   Major @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  major     Major   @relation(fields: [majorId], references: [id], onDelete: Cascade)
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@id([majorId, subjectId])
@@ -76,18 +101,22 @@ model MajorSubject {
 
 model TeacherMajor {
   teacherId Int
-  majorId Int
+  majorId   Int
+  assignedAt DateTime @default(now())
+
   teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  major   Major @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  major     Major   @relation(fields: [majorId], references: [id], onDelete: Cascade)
 
   @@id([teacherId, majorId])
 }
 
 model TeacherSubject {
-  teacherId Int     @unique
-  subjectId Int     @unique // Añadimos @unique aquí
-  teacher   Teacher @relation("TeacherSubject", fields: [teacherId], references: [id], onDelete: Cascade)
-  subject   Subject @relation("SubjectTeacher", fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId Int
+  subjectId Int
+  assignedAt DateTime @default(now())
+
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@id([teacherId, subjectId])
 }

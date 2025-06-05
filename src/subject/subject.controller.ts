@@ -1,28 +1,48 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  ParseIntPipe,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { SubjectService } from './subject.service';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RoleName } from '@prisma/client';
+import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
 
 @Controller('subjects')
+@UseGuards(RolesGuard)
 export class SubjectController {
   constructor(private readonly subjectService: SubjectService) {}
 
   @Post()
+  @Roles(RoleName.ADMIN)
   async create(@Body() createSubjectDto: CreateSubjectDto) {
     return this.subjectService.create(createSubjectDto);
   }
 
   @Get()
-  async findAll() {
-    return this.subjectService.findAll();
+  @Roles(RoleName.ADMIN, RoleName.TEACHER, RoleName.STUDENT)
+  async findAll(@Query() paginationDto: PaginationDto) { // ¡Modificado!
+    return this.subjectService.findAll(paginationDto); // ¡Modificado!
   }
 
   @Get(':id')
+  @Roles(RoleName.ADMIN, RoleName.TEACHER, RoleName.STUDENT)
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.subjectService.findOne(id);
   }
 
   @Patch(':id')
+  @Roles(RoleName.ADMIN)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSubjectDto: UpdateSubjectDto,
@@ -31,11 +51,13 @@ export class SubjectController {
   }
 
   @Delete(':id')
+  @Roles(RoleName.ADMIN)
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.subjectService.remove(id);
   }
 
   @Get(':id/students')
+  @Roles(RoleName.ADMIN, RoleName.TEACHER)
   async getStudentsBySubject(
     @Param('id', ParseIntPipe) id: number,
     @Query('includeStudents') includeStudents?: string,
@@ -46,12 +68,13 @@ export class SubjectController {
   }
 
   @Get(':id/teacher')
-  async getTeacherBySubject(
+  @Roles(RoleName.ADMIN, RoleName.TEACHER, RoleName.STUDENT)
+  async getTeachersBySubject(
     @Param('id', ParseIntPipe) id: number,
-    @Query('includeTeacher') includeTeacher?: string,
+    @Query('includeTeachers') includeTeachers?: string,
   ) {
-    const includeTeacherBool =
-      includeTeacher === 'true' || includeTeacher === undefined;
-    return this.subjectService.getTeacherBySubject(id, includeTeacherBool);
+    const includeTeachersBool =
+      includeTeachers === 'true' || includeTeachers === undefined;
+    return this.subjectService.getTeachersBySubject(id, includeTeachersBool);
   }
 }

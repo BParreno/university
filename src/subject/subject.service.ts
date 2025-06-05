@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
 
 @Injectable()
 export class SubjectService {
@@ -13,18 +14,33 @@ export class SubjectService {
     });
   }
 
-  async findAll() {
-    return this.prisma.subject.findMany();
-  }
-
-  async findOne(id: number) {
-    return this.prisma.subject.findUnique({
-      where: { id },
-      include: { majors: true, students: true, teachers: true },
+  async findAll({ limit, offset }: PaginationDto) { // ¡Modificado!
+    return this.prisma.subject.findMany({
+      take: limit,
+      skip: offset,
     });
   }
 
+  async findOne(id: number) {
+    const subject = await this.prisma.subject.findUnique({
+      where: { id },
+      include: {
+        majors: { include: { major: true } },
+        students: { include: { student: true } },
+        teachers: { include: { teacher: true } },
+      },
+    });
+    if (!subject) {
+      throw new NotFoundException(`Subject with ID ${id} not found.`);
+    }
+    return subject;
+  }
+
   async update(id: number, updateSubjectDto: UpdateSubjectDto) {
+    const existingSubject = await this.prisma.subject.findUnique({ where: { id } });
+    if (!existingSubject) {
+      throw new NotFoundException(`Subject with ID ${id} not found.`);
+    }
     return this.prisma.subject.update({
       where: { id },
       data: updateSubjectDto,
@@ -32,15 +48,16 @@ export class SubjectService {
   }
 
   async remove(id: number) {
+    const existingSubject = await this.prisma.subject.findUnique({ where: { id } });
+    if (!existingSubject) {
+      throw new NotFoundException(`Subject with ID ${id} not found.`);
+    }
     return this.prisma.subject.delete({
       where: { id },
     });
   }
 
-  async getStudentsBySubject(
-    id: number,
-    includeStudents: boolean = true,
-  ) {
+  async getStudentsBySubject(id: number, includeStudents: boolean = true) {
     const include: any = {};
     if (includeStudents) {
       include.students = {
@@ -49,24 +66,32 @@ export class SubjectService {
         },
       };
     }
-    return this.prisma.subject.findUnique({
+    const subject = await this.prisma.subject.findUnique({
       where: { id },
       include,
     });
+    if (!subject) {
+      throw new NotFoundException(`Subject with ID ${id} not found.`);
+    }
+    return subject;
   }
 
-  async getTeacherBySubject(id: number, includeTeacher: boolean = true) {
+  async getTeachersBySubject(id: number, includeTeachers: boolean = true) {
     const include: any = {};
-      if(includeTeacher){
-        include.teachers = {
-          include: {
-            teacher: true,
-          },
-        };
-      }
-    return this.prisma.subject.findUnique({
+    if (includeTeachers) {
+      include.teachers = {
+        include: {
+          teacher: true,
+        },
+      };
+    }
+    const subject = await this.prisma.subject.findUnique({
       where: { id },
       include,
     });
+    if (!subject) {
+      throw new NotFoundException(`Subject with ID ${id} not found.`);
+    }
+    return subject;
   }
 }

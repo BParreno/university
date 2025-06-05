@@ -1,8 +1,8 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// learn more in the docs: https://pris.ly/d/prisma-schema
 
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Try Prisma Accelerate: https://prisely/cli/accelerate-init
 
 generator client {
   provider = "prisma-client-js"
@@ -12,6 +12,23 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      RoleName @default(STUDENT)
+  studentId Int?     @unique
+  teacherId Int?     @unique
+  student   Student? @relation(fields: [studentId], references: [id])
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
 }
 
 model Major {
@@ -29,8 +46,7 @@ model Subject {
   description String?
   majors      MajorSubject[]
   students    StudentSubject[]
-  teachers    TeacherSubject?  @relation("SubjectTeacher")
-  teacherId   Int?             @unique
+  teachers    TeacherSubject[] // ¡Esta línea es la que faltaba y fue corregida!
 }
 
 model Student {
@@ -38,13 +54,15 @@ model Student {
   name     String
   majors   StudentMajor[]
   subjects StudentSubject[]
+  user     User?
 }
 
 model Teacher {
   id       Int              @id @default(autoincrement())
   name     String
   majors   TeacherMajor[]
-  subjects TeacherSubject[] @relation("TeacherSubject")
+  subjects TeacherSubject[] // La relación con Subject se manejará exclusivamente a través de TeacherSubject
+  user     User?
 }
 
 model StudentMajor {
@@ -84,10 +102,10 @@ model TeacherMajor {
 }
 
 model TeacherSubject {
-  teacherId Int     @unique
-  subjectId Int     @unique // Añadimos @unique aquí
-  teacher   Teacher @relation("TeacherSubject", fields: [teacherId], references: [id], onDelete: Cascade)
-  subject   Subject @relation("SubjectTeacher", fields: [subjectId], references: [id], onDelete: Cascade)
+  teacherId Int
+  subjectId Int
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  @@id([teacherId, subjectId])
+  @@id([teacherId, subjectId]) // Clave primaria compuesta para la relación muchos a muchos
 }

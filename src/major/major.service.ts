@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateMajorDto } from './dto/create-major.dto';
 import { UpdateMajorDto } from './dto/update-major.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
 
 @Injectable()
 export class MajorService {
@@ -13,18 +14,33 @@ export class MajorService {
     });
   }
 
-  async findAll() {
-    return this.prisma.major.findMany();
-  }
-
-  async findOne(id: number) {
-    return this.prisma.major.findUnique({
-      where: { id },
-      include: { students: true, subjects: true, teachers: true },
+  async findAll({ limit, offset }: PaginationDto) { // ¡Modificado!
+    return this.prisma.major.findMany({
+      take: limit, // Número de registros a tomar (límite)
+      skip: offset, // Número de registros a saltar (desplazamiento)
     });
   }
 
+  async findOne(id: number) {
+    const major = await this.prisma.major.findUnique({
+      where: { id },
+      include: {
+        students: { include: { student: true } },
+        subjects: { include: { subject: true } },
+        teachers: { include: { teacher: true } },
+      },
+    });
+    if (!major) {
+      throw new NotFoundException(`Major with ID ${id} not found.`);
+    }
+    return major;
+  }
+
   async update(id: number, updateMajorDto: UpdateMajorDto) {
+    const existingMajor = await this.prisma.major.findUnique({ where: { id } });
+    if (!existingMajor) {
+      throw new NotFoundException(`Major with ID ${id} not found.`);
+    }
     return this.prisma.major.update({
       where: { id },
       data: updateMajorDto,
@@ -32,33 +48,16 @@ export class MajorService {
   }
 
   async remove(id: number) {
+    const existingMajor = await this.prisma.major.findUnique({ where: { id } });
+    if (!existingMajor) {
+      throw new NotFoundException(`Major with ID ${id} not found.`);
+    }
     return this.prisma.major.delete({
       where: { id },
     });
   }
 
-  async getStudentMajorsAndSubjects(id: number) {
-    return this.prisma.major.findUnique({ // Corregido a major
-      where: { id },
-      include: {
-        students: {
-          include: {
-            student: true, // Incluye los detalles del estudiante
-          },
-        },
-        subjects: {
-          include: {
-            subject: true, // Incluye los detalles de la materia
-          },
-        },
-      },
-    });
-  }
-
-  async getStudentsByMajor(
-    id: number,
-    includeStudents: boolean = true,
-  ) {
+  async getStudentsByMajor(id: number, includeStudents: boolean = true) {
     const include: any = {};
     if (includeStudents) {
       include.students = {
@@ -67,27 +66,32 @@ export class MajorService {
         },
       };
     }
-    return this.prisma.major.findUnique({
+    const major = await this.prisma.major.findUnique({
       where: { id },
       include,
     });
+    if (!major) {
+      throw new NotFoundException(`Major with ID ${id} not found.`);
+    }
+    return major;
   }
 
-  async getTeachersByMajor(
-    id: number,
-    includeTeachers: boolean = true,
-  ) {
-      const include: any = {};
-      if (includeTeachers) {
-          include.teachers = {
-            include: {
-              teacher: true
-            }
-          }
-      }
-    return this.prisma.major.findUnique({
+  async getTeachersByMajor(id: number, includeTeachers: boolean = true) {
+    const include: any = {};
+    if (includeTeachers) {
+      include.teachers = {
+        include: {
+          teacher: true,
+        },
+      };
+    }
+    const major = await this.prisma.major.findUnique({
       where: { id },
       include,
     });
+    if (!major) {
+      throw new NotFoundException(`Major with ID ${id} not found.`);
+    }
+    return major;
   }
 }
