@@ -1,3 +1,4 @@
+// src/student/student.controller.ts
 import {
   Controller,
   Get,
@@ -17,7 +18,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleName } from '@prisma/client';
-import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('students')
 @UseGuards(RolesGuard)
@@ -32,8 +33,8 @@ export class StudentController {
 
   @Get()
   @Roles(RoleName.ADMIN, RoleName.TEACHER)
-  async findAll(@Query() paginationDto: PaginationDto) { // ¡Modificado!
-    return this.studentService.findAll(paginationDto); // ¡Modificado!
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return this.studentService.findAll(paginationDto);
   }
 
   @Get(':id')

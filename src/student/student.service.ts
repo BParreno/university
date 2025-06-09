@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// src/student/student.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'; // Importa BadRequestException
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import { Prisma } from '@prisma/client'; // Importación necesaria para tipos de Prisma
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class StudentService {
@@ -15,12 +16,37 @@ export class StudentService {
     });
   }
 
-  async findAll({ limit, offset }: PaginationDto) {
-    return this.prisma.student.findMany({
-      take: limit,
-      skip: offset,
-    });
+  // --- MÉTODO findAll MODIFICADO para paginación robusta ---
+  async findAll(paginationDto: PaginationDto) {
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || 10;
+
+    const skip = (page - 1) * pageSize;
+
+    const [students, totalItems] = await this.prisma.$transaction([
+      this.prisma.student.findMany({
+        take: pageSize,
+        skip: skip,
+      }),
+      this.prisma.student.count(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    return {
+      data: students,
+      meta: {
+        totalItems,
+        itemCount: students.length,
+        itemsPerPage: pageSize,
+        totalPages,
+        currentPage: page,
+        nextPage: page < totalPages ? page + 1 : null,
+        previousPage: page > 1 ? page - 1 : null,
+      },
+    };
   }
+  // --- FIN MÉTODO findAll MODIFICADO ---
 
   async findOne(id: number) {
     const student = await this.prisma.student.findUnique({
@@ -58,13 +84,11 @@ export class StudentService {
     });
   }
 
-  // ¡Modificado para la "vista" con manejo de tipos más robusto usando 'unknown'!
   async getStudentMajorsAndSubjects(
     id: number,
     includeMajors: boolean = true,
     includeSubjects: boolean = true,
   ) {
-    // Definimos el objeto select de forma dinámica
     const selectOptions: Prisma.StudentSelect = {
       id: true,
       name: true,
@@ -97,7 +121,6 @@ export class StudentService {
       };
     }
 
-    // Realizamos la consulta con el objeto select dinámico
     const student = await this.prisma.student.findUnique({
       where: { id },
       select: selectOptions,
@@ -107,8 +130,6 @@ export class StudentService {
       throw new NotFoundException(`Student with ID ${id} not found.`);
     }
 
-    // Ahora, transformamos los datos. Utilizaremos 'as unknown as Type'
-    // para decirle a TypeScript que confíe en que la estructura es la que esperamos.
     const transformedStudent = {
       id: student.id,
       name: student.name,

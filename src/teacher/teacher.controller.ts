@@ -1,3 +1,4 @@
+// src/teacher/teacher.controller.ts
 import {
   Controller,
   Get,
@@ -16,7 +17,7 @@ import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleName } from '@prisma/client';
-import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('teachers')
 @UseGuards(RolesGuard)
@@ -31,8 +32,8 @@ export class TeacherController {
 
   @Get()
   @Roles(RoleName.ADMIN)
-  async findAll(@Query() paginationDto: PaginationDto) { // ¡Modificado!
-    return this.teacherService.findAll(paginationDto); // ¡Modificado!
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return this.teacherService.findAll(paginationDto);
   }
 
   @Get(':id')
@@ -92,7 +93,6 @@ export class TeacherController {
     return this.teacherService.removeTeacherFromSubject(teacherId, subjectId);
   }
 
-  // ¡NUEVA RUTA TRANSACCIONAL!
   @Post(':teacherId/assign-subject-and-major/:subjectId/:majorId')
   @Roles(RoleName.ADMIN)
   async assignSubjectAndMajorInTransaction(

@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// src/subject/subject.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'; // Importa BadRequestException
 import { CreateSubjectDto } from './dto/create-subject.dto';
 import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class SubjectService {
@@ -14,12 +15,37 @@ export class SubjectService {
     });
   }
 
-  async findAll({ limit, offset }: PaginationDto) { // ¡Modificado!
-    return this.prisma.subject.findMany({
-      take: limit,
-      skip: offset,
-    });
+  // --- MÉTODO findAll MODIFICADO para paginación robusta ---
+  async findAll(paginationDto: PaginationDto) {
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || 10;
+
+    const skip = (page - 1) * pageSize;
+
+    const [subjects, totalItems] = await this.prisma.$transaction([
+      this.prisma.subject.findMany({
+        take: pageSize,
+        skip: skip,
+      }),
+      this.prisma.subject.count(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    return {
+      data: subjects,
+      meta: {
+        totalItems,
+        itemCount: subjects.length,
+        itemsPerPage: pageSize,
+        totalPages,
+        currentPage: page,
+        nextPage: page < totalPages ? page + 1 : null,
+        previousPage: page > 1 ? page - 1 : null,
+      },
+    };
   }
+  // --- FIN MÉTODO findAll MODIFICADO ---
 
   async findOne(id: number) {
     const subject = await this.prisma.subject.findUnique({

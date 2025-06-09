@@ -1,3 +1,4 @@
+// src/subject/subject.controller.ts
 import {
   Controller,
   Get,
@@ -16,7 +17,7 @@ import { UpdateSubjectDto } from './dto/update-subject.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RoleName } from '@prisma/client';
-import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('subjects')
 @UseGuards(RolesGuard)
@@ -31,8 +32,8 @@ export class SubjectController {
 
   @Get()
   @Roles(RoleName.ADMIN, RoleName.TEACHER, RoleName.STUDENT)
-  async findAll(@Query() paginationDto: PaginationDto) { // ¡Modificado!
-    return this.subjectService.findAll(paginationDto); // ¡Modificado!
+  async findAll(@Query() paginationDto: PaginationDto) {
+    return this.subjectService.findAll(paginationDto);
   }
 
   @Get(':id')

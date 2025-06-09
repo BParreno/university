@@ -1,3 +1,4 @@
+// src/teacher/teacher.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +7,7 @@ import {
 import { CreateTeacherDto } from './dto/create-teacher.dto';
 import { UpdateTeacherDto } from './dto/update-teacher.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaginationDto } from '../common/dto/pagination.dto'; // ¡Nueva importación!
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class TeacherService {
@@ -18,12 +19,37 @@ export class TeacherService {
     });
   }
 
-  async findAll({ limit, offset }: PaginationDto) { // ¡Modificado!
-    return this.prisma.teacher.findMany({
-      take: limit,
-      skip: offset,
-    });
+  // --- MÉTODO findAll MODIFICADO para paginación robusta ---
+  async findAll(paginationDto: PaginationDto) {
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || 10;
+
+    const skip = (page - 1) * pageSize;
+
+    const [teachers, totalItems] = await this.prisma.$transaction([
+      this.prisma.teacher.findMany({
+        take: pageSize,
+        skip: skip,
+      }),
+      this.prisma.teacher.count(),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / pageSize);
+
+    return {
+      data: teachers,
+      meta: {
+        totalItems,
+        itemCount: teachers.length,
+        itemsPerPage: pageSize,
+        totalPages,
+        currentPage: page,
+        nextPage: page < totalPages ? page + 1 : null,
+        previousPage: page > 1 ? page - 1 : null,
+      },
+    };
   }
+  // --- FIN MÉTODO findAll MODIFICADO ---
 
   async findOne(id: number) {
     const teacher = await this.prisma.teacher.findUnique({
@@ -155,13 +181,11 @@ export class TeacherService {
     });
   }
 
-  // ¡NUEVO MÉTODO TRANSACCIONAL!
   async assignTeacherToSubjectAndMajorInTransaction(
     teacherId: number,
     subjectId: number,
     majorId: number,
   ) {
-    // 1. Verificar si existen el profesor, la materia y la carrera
     const [teacher, subject, major] = await Promise.all([
       this.prisma.teacher.findUnique({ where: { id: teacherId } }),
       this.prisma.subject.findUnique({ where: { id: subjectId } }),
@@ -178,7 +202,6 @@ export class TeacherService {
       throw new NotFoundException(`Major with ID ${majorId} not found.`);
     }
 
-    // 2. Verificar si las asignaciones ya existen para evitar duplicados
     const [existingSubjectAssignment, existingMajorAssignment] =
       await Promise.all([
         this.prisma.teacherSubject.findUnique({
@@ -200,8 +223,6 @@ export class TeacherService {
       );
     }
 
-    // 3. Ejecutar ambas asignaciones dentro de una transacción
-    // Si alguna de estas operaciones falla, ambas se revertirán.
     return this.prisma.$transaction([
       this.prisma.teacherSubject.create({
         data: {
